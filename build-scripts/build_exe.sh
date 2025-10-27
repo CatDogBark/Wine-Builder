@@ -34,7 +34,30 @@ fi
 # PyInstaller is pre-installed in Docker container
 echo "PyInstaller pre-installed in Wine environment..."
 
-# Create Windows build script in /app (writable location)
+# Copy source files and build script to Wine environment
+echo "Copying source files to Wine environment..."
+cp "/source/$PYTHON_SCRIPT" "$WINEPREFIX/drive_c/"
+cp -r "/source/tools/" "$WINEPREFIX/drive_c/" || true
+
+# Copy requirements.txt if it exists
+if [ -f "/source/tools/requirements.txt" ]; then
+    cp "/source/tools/requirements.txt" "$WINEPREFIX/drive_c/"
+fi
+
+# Copy icon if specified in extra args
+if [[ "$EXTRA_ARGS" == *"--icon"* ]]; then
+    icon_path=$(echo "$EXTRA_ARGS" | sed -n 's/.*--icon=\([^[:space:]]*\).*/\1/p')
+    if [ -f "/source/$icon_path" ]; then
+        cp "/source/$icon_path" "$WINEPREFIX/drive_c/"
+        echo "Icon file copied to Wine environment"
+    else
+        echo "Warning: Icon file $icon_path not found, build will continue without icon"
+        # Remove --icon from args if file not found
+        EXTRA_ARGS=$(echo "$EXTRA_ARGS" | sed 's/--icon=[^[:space:]]*//g' | tr -s ' ')
+    fi
+fi
+
+# Create Windows build script in /app (writable location) after processing EXTRA_ARGS
 BUILD_SCRIPT="/app/build_in_wine.bat"
 cat > "$BUILD_SCRIPT" << EOF
 @echo off
@@ -87,7 +110,7 @@ echo.
 REM Build the executable using pyinstaller module with GUI support
 REM Optimized for AV compatibility and proper bundling
 REM Include tkinter as runtime dependency (resolved from target Windows system)
-python -m PyInstaller --onefile --windowed --clean --noupx --name=$EXECUTABLE_NAME --collect-all PIL --hidden-import=PIL.Image --hidden-import=PIL.ImageTk --hidden-import=tkinter $EXTRA_ARGS $PYTHON_SCRIPT
+python -m PyInstaller --onefile --windowed --clean --noupx --name=$EXECUTABLE_NAME --collect-all PIL --collect-all tkinter --hidden-import=PIL.Image --hidden-import=PIL.ImageTk --hidden-import=tkinter $EXTRA_ARGS $PYTHON_SCRIPT
 
 if errorlevel 1 (
     echo.
@@ -105,30 +128,7 @@ echo.
 EOF
 
 echo "Created Windows build script in /app"
-
-# Copy source files and build script to Wine environment
-echo "Copying source files to Wine environment..."
-cp "/source/$PYTHON_SCRIPT" "$WINEPREFIX/drive_c/"
-cp -r "/source/tools/" "$WINEPREFIX/drive_c/" || true
 cp "/app/build_in_wine.bat" "$WINEPREFIX/drive_c/"
-
-# Copy requirements.txt if it exists
-if [ -f "/source/tools/requirements.txt" ]; then
-    cp "/source/tools/requirements.txt" "$WINEPREFIX/drive_c/"
-fi
-
-# Copy icon if specified in extra args
-if [[ "$EXTRA_ARGS" == *"--icon"* ]]; then
-    icon_path=$(echo "$EXTRA_ARGS" | sed -n 's/.*--icon=\([^[:space:]]*\).*/\1/p')
-    if [ -f "/source/$icon_path" ]; then
-        cp "/source/$icon_path" "$WINEPREFIX/drive_c/"
-        echo "Icon file copied to Wine environment"
-    else
-        echo "Warning: Icon file $icon_path not found, build will continue without icon"
-        # Remove --icon from args if file not found
-        EXTRA_ARGS=$(echo "$EXTRA_ARGS" | sed 's/--icon=[^[:space:]]*//g' | tr -s ' ')
-    fi
-fi
 
 # Run build in Wine environment
 echo "Running build in Wine environment..."
@@ -152,10 +152,10 @@ if [ ! -f "$WINEPREFIX/drive_c/dist/${EXECUTABLE_NAME}.exe" ]; then
     exit 1
 fi
 
-# Copy the built executable to source directory
-echo "Copying executable to source directory..."
-cp "$WINEPREFIX/drive_c/dist/${EXECUTABLE_NAME}.exe" "/source/"
-ls -la "/source/"
+# Copy the built executable to output directory
+echo "Copying executable to output directory..."
+cp "$WINEPREFIX/drive_c/dist/${EXECUTABLE_NAME}.exe" "/output/"
+ls -la "/output/"
 
 echo ""
 echo "=========================================="
