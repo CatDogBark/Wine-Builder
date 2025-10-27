@@ -1,0 +1,37 @@
+# Example configuration for a new Python tool
+# Copy this file and modify for your new tool
+
+# Tool information
+tool_name: "My New Tool"
+description: "Description of what your tool does"
+
+# Python script to build
+python_script: "my_new_tool.py"
+
+# Output executable name (without .exe extension)
+executable_name: "My_New_Tool"
+
+# PyInstaller build options
+pyinstaller_options:
+  # Use --windowed for GUI apps, --console for command-line tools
+  - "--windowed"
+  # Add icon if available
+  - "--icon=my_icon.ico"
+  # Hidden imports for problematic modules
+  - "--hidden-import=module_that_might_be_missing"
+  - "--hidden-import=tkinter"
+  - "--hidden-import=PIL"
+  - "--hidden-import=PIL.Image"
+
+# Python dependencies (will be installed automatically)
+python_dependencies:
+  - "Pillow>=8.0.0"
+  - "numpy>=1.20.0"
+  - "requests>=2.25.0"
+
+# Directory structure in tools/
+# tools/
+# ├── my_new_tool.py          # Your main script
+# ├── requirements.txt        # Generated from python_dependencies above
+# ├── my_icon.ico            # Optional icon file
+# └── data/                   # Optional data files to bundle

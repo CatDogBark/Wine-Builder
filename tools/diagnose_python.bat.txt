@@ -1,0 +1,63 @@
+@echo off
+echo ========================================
+echo      Python/PyInstaller Diagnostics
+echo ========================================
+echo.
+echo Checking multiple Python installations for PyInstaller...
+echo.
+
+set PY313=C:\Python313\python.exe
+set APPDATA_PY=%APPDATA%\Python\Python313\python.exe
+set LOCAL_PY=%APPDATA%\..\Local\Programs\Python\Python313\python.exe
+
+echo Testing Paths:
+echo =================
+echo 1. C:\Python313\python.exe:       %PY313%
+echo 2. AppData Python:                %APPDATA_PY%
+echo 3. Local Programs Python:         %LOCAL_PY%
+echo.
+
+echo Testing PyInstaller Access:
+echo ===========================
+
+REM Test 1: C:\Python313
+if exist "%PY313%" (
+    echo Test 1 - C:\Python313:
+    "%PY313%" -c "import pyinstaller" 2>nul && echo   ✓ Can import pyinstaller || echo   ✗ Cannot import pyinstaller
+    "%PY313%" -m pip list | findstr pyinstaller | findstr /v "WARNING"
+) else (
+    echo Test 1 - C:\Python313:        ✗ Python.exe not found
+)
+
+echo.
+
+REM Test 2: AppData
+if exist "%APPDATA_PY%" (
+    echo Test 2 - AppData Python:
+    "%APPDATA_PY%" -c "import pyinstaller" 2>nul && echo   ✓ Can import pyinstaller || echo   ✗ Cannot import pyinstaller
+    "%APPDATA_PY%" -m pip list | findstr pyinstaller | findstr /v "WARNING"
+) else (
+    echo Test 2 - AppData Python:       ✗ Python.exe not found
+)
+
+echo.
+
+REM Test 3: Local Programs
+if exist "%LOCAL_PY%" (
+    echo Test 3 - Local Programs Python:
+    "%LOCAL_PY%" -c "import pyinstaller" 2>nul && echo   ✓ Can import pyinstaller || echo   ✗ Cannot import pyinstaller
+    "%LOCAL_PY%" -m pip list | findstr pyinstaller | findstr /v "WARNING"
+) else (
+    echo Test 3 - Local Programs Python: ✗ Python.exe not found
+)
+
+echo.
+echo Recommendations:
+echo ================
+echo Look for where you see "Can import pyinstaller" above.
+echo That Python.exe path should be used in the build script.
+echo.
+echo If none work, try installing PyInstaller to each Python:
+echo   [PYTHON_PATH] -m pip install pyinstaller
+echo.
+pause

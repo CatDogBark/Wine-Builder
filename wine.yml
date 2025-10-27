@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  wine-builder:
+    build:
+      context: .
+      target: builder
+    container_name: wine-executable-builder
+    volumes:
+      # Mount source directory (where your tool source code lives)
+      - ./tools:/source:ro
+      # Mount output directory (where built executables go)
+      - ./dist:/output
+    environment:
+      # These will be set by docker-compose run or the entrypoint script
+      - PYTHON_SCRIPT
+      - EXECUTABLE_NAME
+      - EXTRA_PYINSTALLER_ARGS
+    entrypoint: /app/build-scripts/docker-entrypoint.sh
+    # Add if you need GUI support (for debugging Wine applications)
+    # environment:
+    #   - DISPLAY=$DISPLAY
+    # devices:
+    #   - /dev/dri:/dev/dri
+    # volumes:
+    #   - /tmp/.X11-unix:/tmp/.X11-unix:ro
+    # network_mode: host
