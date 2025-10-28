@@ -9,6 +9,12 @@ from tkinter import ttk, filedialog, messagebox
 from PIL import Image, ImageTk
 import os
 import math
+import sys
+
+# Add the script directory to Python path so relative imports work
+script_dir = os.path.dirname(os.path.abspath(__file__))
+if script_dir not in sys.path:
+    sys.path.insert(0, script_dir)
 
 # Import all tool classes
 from editor.sprite_frame_editor import SpriteFrameEditor

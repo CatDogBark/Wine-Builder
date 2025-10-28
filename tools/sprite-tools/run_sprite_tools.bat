@@ -4,47 +4,44 @@ echo   Sprite Tools Suite Launcher
 echo ========================================
 echo.
 
-REM Check if Python is available
-python --version >nul 2>&1
+echo STEP 1: Check if Python is available...
+python --version
 if errorlevel 1 (
-    echo ERROR: Python not found!
-    echo Please make sure Python is installed and in your PATH.
-    echo.
+    echo ERROR: Python not found in PATH
     pause
     exit /b 1
 )
-
-REM Check if required modules are available
-echo Checking dependencies...
-python -c "import tkinter" >nul 2>&1
-if errorlevel 1 (
-    echo ERROR: tkinter module not found!
-    echo Please install tkinter or ensure it's included in your Python installation.
-    echo.
-    pause
-    exit /b 1
-)
-
-python -c "from PIL import Image" >nul 2>&1
-if errorlevel 1 (
-    echo ERROR: Pillow (PIL) module not found!
-    echo Run: pip install pillow
-    echo.
-    pause
-    exit /b 1
-)
-
-echo Starting Sprite Tools Suite...
-echo Press Ctrl+C to exit the application
+echo Python OK!
+pause
 echo.
 
-REM Run the combined tools (we're already in the sprite-tools directory)
+echo STEP 2: Check if tkinter works...
+python -c "import tkinter; print('tkinter OK!')"
+if errorlevel 1 (
+    echo ERROR: tkinter import failed
+    pause
+    exit /b 1
+)
+pause
+echo.
+
+echo STEP 3: Check if Pillow (PIL) works...
+python -c "from PIL import Image; print('PIL OK!')"
+if errorlevel 1 (
+    echo ERROR: PIL import failed
+    pause
+    exit /b 1
+)
+pause
+echo.
+
+echo STEP 4: Launch the Sprite Tools Suite...
+echo The GUI should open in a new window.
+echo If it doesn't appear, check for error messages.
+echo.
 python combined_sprite_tools.py
 
-REM Keep window open if there was an error
-if errorlevel 1 (
-    echo.
-    echo An error occurred! Check the error message above.
-    echo.
-    pause
-)
+echo.
+echo Application closed.
+echo If you saw errors above, that's the issue.
+pause

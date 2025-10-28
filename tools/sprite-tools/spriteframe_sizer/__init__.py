@@ -1,0 +1,1 @@
+# SpriteFrame sizer package

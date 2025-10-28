@@ -1,0 +1,1 @@
+# Sprite Tools Suite root package

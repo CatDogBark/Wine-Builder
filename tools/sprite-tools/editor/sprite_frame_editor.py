@@ -62,37 +62,52 @@ class SpriteFrameEditor:
         self.setup_canvas()
 
     def setup_ui(self):
-        # Menu bar
-        menubar = tk.Menu(self.root)
-        self.root.config(menu=menubar)
+        # Menu bar (only for top-level windows, not when used as a tab)
+        if hasattr(self.root, 'title') and callable(getattr(self.root, 'title')):
+            menubar = tk.Menu(self.root)
+            self.root.config(menu=menubar)
 
-        file_menu = tk.Menu(menubar, tearoff=0)
-        menubar.add_cascade(label="File", menu=file_menu)
-        file_menu.add_command(label="Load Spritesheet", command=self.load_spritesheet)
-        file_menu.add_command(label="Save Spritesheet", command=self.save_spritesheet)
-        file_menu.add_separator()
-        file_menu.add_command(label="Exit", command=self.root.quit)
+            file_menu = tk.Menu(menubar, tearoff=0)
+            menubar.add_cascade(label="File", menu=file_menu)
+            file_menu.add_command(label="Load Spritesheet", command=self.load_spritesheet)
+            file_menu.add_command(label="Save Spritesheet", command=self.save_spritesheet)
+            file_menu.add_separator()
+            file_menu.add_command(label="Exit", command=self.root.quit)
 
-        # Make sure window is visible before showing dialogs
-        self.root.update_idletasks()
-        self.root.lift()
-        self.root.focus_force()
+            # Make sure window is visible before showing dialogs
+            self.root.update_idletasks()
+            self.root.lift()
+            self.root.focus_force()
 
-        edit_menu = tk.Menu(menubar, tearoff=0)
-        menubar.add_cascade(label="Edit", menu=edit_menu)
-        edit_menu.add_command(label="Select All", command=self.select_all)
-        edit_menu.add_command(label="Select Empty", command=self.select_empty)
-        edit_menu.add_command(label="Clear Selection", command=self.clear_selection)
-        edit_menu.add_separator()
-        edit_menu.add_command(label="Delete Selected", command=self.delete_selected)
-        edit_menu.add_command(label="Compact Grid", command=self.compact_grid)
+            edit_menu = tk.Menu(menubar, tearoff=0)
+            menubar.add_cascade(label="Edit", menu=edit_menu)
+            edit_menu.add_command(label="Select All", command=self.select_all)
+            edit_menu.add_command(label="Select Empty", command=self.select_empty)
+            edit_menu.add_command(label="Clear Selection", command=self.clear_selection)
+            edit_menu.add_separator()
+            edit_menu.add_command(label="Delete Selected", command=self.delete_selected)
+            edit_menu.add_command(label="Compact Grid", command=self.compact_grid)
 
-        # Toolbar
-        toolbar = tk.Frame(self.root, bd=1, relief=tk.RAISED)
-        toolbar.pack(side=tk.TOP, fill=tk.X)
+        # Toolbar (always show, regardless of menu availability)
+        self.toolbar = tk.Frame(self.root, bd=1, relief=tk.RAISED)
+        self.toolbar.pack(side=tk.TOP, fill=tk.X)
+
+        # Add load button if menu is not available (tabbed mode)
+        if not hasattr(self.root, 'title') or not callable(getattr(self.root, 'title')):
+            load_btn = tk.Button(self.toolbar, text="Load Spritesheet", command=self.load_spritesheet, padx=10)
+            load_btn.pack(side=tk.LEFT, padx=5, pady=2)
+
+            save_btn = tk.Button(self.toolbar, text="Save Spritesheet", command=self.save_spritesheet, padx=10)
+            save_btn.pack(side=tk.LEFT, padx=5, pady=2)
+
+            delete_btn = tk.Button(self.toolbar, text="Delete Selected", command=self.delete_selected, padx=10)
+            delete_btn.pack(side=tk.LEFT, padx=5, pady=2)
+
+            cleanup_btn = tk.Button(self.toolbar, text="Clean Up Empty", command=self.cleanup_empty_frames, padx=10)
+            cleanup_btn.pack(side=tk.LEFT, padx=5, pady=2)
 
         # Grid configuration
-        grid_frame = tk.Frame(toolbar)
+        grid_frame = tk.Frame(self.toolbar)
         grid_frame.pack(side=tk.LEFT, padx=5, pady=5)
 
         tk.Label(grid_frame, text="Grid:").grid(row=0, column=0, padx=2)
@@ -110,7 +125,7 @@ class SpriteFrameEditor:
         rows_spin.grid(row=0, column=3, padx=2)
 
         # Layout direction
-        layout_frame = tk.Frame(toolbar)
+        layout_frame = tk.Frame(self.toolbar)
         layout_frame.pack(side=tk.LEFT, padx=10)
 
         tk.Label(layout_frame, text="Layout:").grid(row=0, column=0, sticky="w")
@@ -123,7 +138,7 @@ class SpriteFrameEditor:
         layout_menu.bind('<<ComboboxSelected>>', self.on_layout_change)
 
         # Zoom control
-        zoom_frame = tk.Frame(toolbar)
+        zoom_frame = tk.Frame(self.toolbar)
         zoom_frame.pack(side=tk.LEFT, padx=10)
 
         tk.Label(zoom_frame, text="Zoom:").pack(side=tk.LEFT)
@@ -198,8 +213,11 @@ Status Legend:
         self.canvas.bind('<ButtonRelease-1>', self.on_canvas_release)
         self.canvas.bind('<Button-3>', self.on_canvas_right_click)
 
+        # Bind keyboard shortcuts - bind to root for both modes, canvas for extra coverage
         self.root.bind('<Delete>', lambda e: self.delete_selected())
         self.root.bind('<Control-a>', lambda e: self.select_all())
+        self.canvas.bind('<Delete>', lambda e: self.delete_selected())
+        self.canvas.bind('<Control-a>', lambda e: self.select_all())
 
         # Context menu
         self.context_menu = tk.Menu(self.root, tearoff=0)
@@ -448,8 +466,12 @@ Status Legend:
 
     def on_canvas_click(self, event):
         """Handle canvas click events"""
-        # Find clicked frame
-        items = self.canvas.find_overlapping(event.x, event.y, event.x+1, event.y+1)
+        # Account for scroll position
+        scroll_x = self.canvas.canvasx(event.x)
+        scroll_y = self.canvas.canvasy(event.y)
+
+        # Find clicked frame with scroll adjustment
+        items = self.canvas.find_overlapping(scroll_x, scroll_y, scroll_x+1, scroll_y+1)
 
         for item in items:
             tags = self.canvas.gettags(item)
@@ -519,6 +541,34 @@ Status Legend:
 
         self.update_display()
         self.status_var.set(f"Deleted {deleted_count} frames")
+
+    def cleanup_empty_frames(self):
+        """Remove all empty frames from the frames list altogether"""
+        if not self.frames:
+            return
+
+        original_count = len(self.frames)
+
+        # Keep only non-empty frames
+        cleaned_frames = [frame for frame in self.frames if not frame.is_empty]
+
+        if len(cleaned_frames) == original_count:
+            messagebox.showinfo("Cleanup", "No empty frames found to remove.")
+            return
+
+        deleted_count = original_count - len(cleaned_frames)
+
+        # Update frames with non-empty frames
+        self.frames = cleaned_frames
+
+        # Renumber grid positions after removal
+        for i, frame in enumerate(self.frames):
+            # Convert flat index back to grid position
+            frame.original_index = i  # Update the display index
+            # Note: We don't change grid_x, grid_y as they represent the logical position
+
+        self.update_display()
+        self.status_var.set(f"Removed {deleted_count} empty frames, {len(self.frames)} frames remaining")
 
     def compact_grid(self):
         """Remove empty columns/rows and compact the grid"""
