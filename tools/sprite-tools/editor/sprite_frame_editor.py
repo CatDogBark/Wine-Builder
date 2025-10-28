@@ -212,11 +212,11 @@ Status Legend:
         self.canvas.bind('<B1-Motion>', self.on_canvas_drag)
         self.canvas.bind('<ButtonRelease-1>', self.on_canvas_release)
         self.canvas.bind('<Button-3>', self.on_canvas_right_click)
+        self.canvas.bind('<FocusIn>', lambda e: self.canvas.focus_set())
 
-        # Bind keyboard shortcuts - bind to root for both modes, canvas for extra coverage
-        self.root.bind('<Delete>', lambda e: self.delete_selected())
-        self.root.bind('<Control-a>', lambda e: self.select_all())
-        self.canvas.bind('<Delete>', lambda e: self.delete_selected())
+        # Bind keyboard shortcuts - focus canvas when clicked, then bind Delete key to canvas
+        self.canvas.focus_set()  # Set initial focus to canvas
+        self.canvas.bind('<Delete>', lambda e: (print("DEBUG: Delete key pressed on canvas"), self.delete_selected()))
         self.canvas.bind('<Control-a>', lambda e: self.select_all())
 
         # Context menu
@@ -529,6 +529,7 @@ Status Legend:
 
     def delete_selected(self):
         """Mark selected frames as deleted (empty)"""
+        print(f"DEBUG: delete_selected called - selected frames: {[i for i, f in enumerate(self.frames) if f.selected]}")
         deleted_count = 0
         for frame in self.frames:
             if frame.selected:
@@ -539,6 +540,7 @@ Status Legend:
                 frame.selected = False
                 deleted_count += 1
 
+        print(f"DEBUG: delete_selected completed - deleted {deleted_count} frames")
         self.update_display()
         self.status_var.set(f"Deleted {deleted_count} frames")
 
