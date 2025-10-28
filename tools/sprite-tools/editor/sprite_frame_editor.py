@@ -18,6 +18,7 @@ class FrameObject:
         self.grid_x = grid_x
         self.grid_y = grid_y
         self.original_index = original_index
+        self.sequence_order = 0  # Order within animation group for reordering
         self.is_empty = self.determine_if_empty()
         self.selected = False
 
@@ -105,6 +106,9 @@ class SpriteFrameEditor:
 
             cleanup_btn = tk.Button(self.toolbar, text="Clean Up Empty", command=self.cleanup_empty_frames, padx=10)
             cleanup_btn.pack(side=tk.LEFT, padx=5, pady=2)
+
+            reorder_btn = tk.Button(self.toolbar, text="Reorder Frames", command=self.reorder_frames_by_position, padx=10)
+            reorder_btn.pack(side=tk.LEFT, padx=5, pady=2)
 
         # Grid configuration
         grid_frame = tk.Frame(self.toolbar)
@@ -274,6 +278,7 @@ Status Legend:
         frame_width = width // self.grid_cols
         frame_height = height // self.grid_rows
 
+        frame_index = 0
         for row in range(self.grid_rows):
             for col in range(self.grid_cols):
                 left = col * frame_width
@@ -283,9 +288,11 @@ Status Legend:
 
                 frame_img = self.spritesheet.crop((left, top, right, bottom))
 
-                # Create frame object
-                frame_obj = FrameObject(frame_img, col, row, len(self.frames))
+                # Create frame object with sequence order for drag reordering
+                frame_obj = FrameObject(frame_img, col, row, frame_index)
+                frame_obj.sequence_order = frame_index  # Initial sequence order
                 self.frames.append(frame_obj)
+                frame_index += 1
 
     def update_display(self):
         """Refresh the canvas display"""
@@ -478,6 +485,15 @@ Status Legend:
             for tag in tags:
                 if tag.startswith("frame_"):
                     frame_index = int(tag.split("_")[1])
+                    frame = self.frames[frame_index]
+
+                    # Start drag operation if frame is selected and not empty
+                    if frame.selected and not frame.is_empty:
+                        self.dragged_frame = frame
+                        self.drag_start = (scroll_x, scroll_y)
+                        self.canvas.config(cursor="hand2")  # Change cursor to indicate dragging
+                        self.status_var.set(f"Dragging frame {frame_index}...")
+                        return
 
                     # Toggle selection
                     if event.state & 0x4:  # Control key held
@@ -485,10 +501,10 @@ Status Legend:
                         pass  # Keep existing selections
                     else:
                         # Clear selection if not already selected
-                        if not self.frames[frame_index].selected:
+                        if not frame.selected:
                             self.clear_selection()
 
-                    self.frames[frame_index].selected = not self.frames[frame_index].selected
+                    frame.selected = not frame.selected
                     self.update_display()
                     return
 
@@ -498,12 +514,176 @@ Status Legend:
 
     def on_canvas_drag(self, event):
         """Handle drag events"""
-        # For now, just select on drag. Could add frame moving later.
-        pass
+        if not self.dragged_frame:
+            return
+
+        # Account for scroll position
+        scroll_x = self.canvas.canvasx(event.x)
+        scroll_y = self.canvas.canvasy(event.y)
+
+        # Create/update drag preview
+        size = int(self.thumbnail_size * self.canvas_zoom)
+
+        # Remove old preview
+        self.canvas.delete("drag_preview")
+
+        # Calculate preview position (centered on mouse)
+        preview_x = scroll_x - size // 2
+        preview_y = scroll_y - size // 2
+
+        # Create semi-transparent preview
+        if not self.dragged_frame.is_empty:
+            # Create semi-transparent version of the frame
+            thumb = self.dragged_frame.image.resize((size, size), Image.LANCZOS)
+
+            # Add transparency to show it's being dragged
+            thumb_overlay = Image.new('RGBA', (size, size), (255, 255, 255, 100))
+            thumb = Image.blend(thumb, thumb_overlay, 0.3)
+
+            photo = ImageTk.PhotoImage(thumb)
+
+            # Store reference
+            if not hasattr(self, 'drag_photo_refs'):
+                self.drag_photo_refs = []
+            self.drag_photo_refs.append(photo)
+
+            # Draw the preview
+            self.canvas.create_image(preview_x, preview_y, anchor=tk.NW,
+                                   image=photo, tags="drag_preview")
+
+        # Update status
+        self.status_var.set(".1f")
 
     def on_canvas_release(self, event):
-        """Handle drag release"""
-        pass
+        """Handle drag release with intra-row reordering"""
+        if not self.dragged_frame:
+            return
+
+        # Account for scroll position
+        scroll_x = self.canvas.canvasx(event.x)
+        scroll_y = self.canvas.canvasy(event.y)
+
+        # Find target position in display layout
+        target_row = None
+        insert_position = None
+
+        if self.layout_mode == "horizontal":
+            # Horizontal mode: animations stacked vertically, frames horizontal within
+
+            # Find which animation group (row) this corresponds to
+            current_y = 10  # margin
+            header_height = 25
+            anim_spacing = int(self.thumbnail_size * self.canvas_zoom) + 5
+
+            group_names = sorted(self.group_frames_by_animation_rows().keys())
+            for i, anim_name in enumerate(group_names):
+                frames_in_group = self.group_frames_by_animation_rows()[anim_name]
+                if not frames_in_group:
+                    continue
+
+                frames_y = current_y + header_height
+                frames_bottom = frames_y + int(self.thumbnail_size * self.canvas_zoom)
+
+                if frames_y <= scroll_y <= frames_bottom:
+                    # Found target row
+                    target_row = int(anim_name.split()[1]) - 1  # "Row 2" -> 1
+
+                    # Now find insertion position within this row
+                    frame_x_start = 10 + 100  # margin + header_width
+                    frame_width = int(self.thumbnail_size * self.canvas_zoom) + 5
+
+                    # Check each position between frames
+                    for pos in range(len(frames_in_group) + 1):
+                        frame_x = frame_x_start + pos * frame_width
+
+                        # Check if mouse is within 10 pixels of this insertion point
+                        if abs(scroll_x - frame_x) <= 10:
+                            insert_position = pos
+                            break
+
+                    # If not found within existing frame areas, place at end
+                    if insert_position is None:
+                        insert_position = len(frames_in_group)
+
+                    break
+
+                current_y += anim_spacing
+
+        if target_row is not None and insert_position is not None:
+            # Perform the move with intra-row reordering
+
+            # If moving within same row
+            if self.dragged_frame.grid_y == target_row:
+                # Reorder within same row
+                frames_in_row = [f for f in self.frames if f.grid_y == target_row and not f.is_empty]
+                frames_in_row.sort(key=lambda f: f.sequence_order)
+
+                # Remove dragged frame from current position
+                frames_in_row = [f for f in frames_in_row if f != self.dragged_frame]
+
+                # Insert at new position
+                frames_in_row.insert(insert_position, self.dragged_frame)
+
+                # Update sequence_order for all frames in this row
+                for i, frame in enumerate(frames_in_row):
+                    frame.sequence_order = i
+
+            else:
+                # Moving to different row
+                old_row = self.dragged_frame.grid_y
+
+                # Update frame's row
+                self.dragged_frame.grid_y = target_row
+
+                # Get all frames in target row and reorder
+                frames_in_target_row = [f for f in self.frames if f.grid_y == target_row and not f.is_empty]
+                frames_in_target_row.sort(key=lambda f: f.sequence_order)
+
+                # Remove from old position (if already in target row somehow)
+                frames_in_target_row = [f for f in frames_in_target_row if f != self.dragged_frame]
+
+                # Insert at new position
+                frames_in_target_row.insert(insert_position, self.dragged_frame)
+
+                # Update sequence_order for all frames in target row
+                for i, frame in enumerate(frames_in_target_row):
+                    frame.sequence_order = i
+
+            self.status_var.set(f"Frame moved to row {target_row + 1}, position {insert_position}")
+        else:
+            self.status_var.set("Drag operation cancelled - invalid drop zone")
+
+        # Remove drag preview
+        self.canvas.delete("drag_preview")
+
+        # Reset cursor and dragged state
+        self.canvas.config(cursor="")
+        self.dragged_frame = None
+        self.drag_start = None
+
+        # Update display
+        self.update_display()
+
+    def reorder_frames_by_position(self):
+        """Remap grid_x coordinates to match current visual display order within each row"""
+        if not self.frames:
+            return
+
+        # For each visual row (by grid_y)
+        for row_num in range(self.grid_rows):
+            # Get all frames currently assigned to this row
+            frames_in_row = [f for f in self.frames if f.grid_y == row_num]
+
+            # Sort by sequence_order (visual left-to-right order)
+            frames_in_row.sort(key=lambda f: f.sequence_order)
+
+            # Reassign grid_x to consecutive positions: 0, 1, 2, 3, ...
+            for i, frame in enumerate(frames_in_row):
+                frame.grid_x = i
+
+        # Update display to show new grid positions
+        self.update_display()
+        self.status_var.set("Frame grid positions remapped to match visual display")
 
     def on_canvas_right_click(self, event):
         """Handle right-click for context menu"""
@@ -666,6 +846,11 @@ Status Legend:
             if anim_name not in groups:
                 groups[anim_name] = []
             groups[anim_name].append(frame)
+
+        # Sort frames within each group by sequence_order for proper display ordering
+        for group_name in groups:
+            groups[group_name].sort(key=lambda f: f.sequence_order)
+
         return groups
 
     def group_frames_by_animation_cols(self):
