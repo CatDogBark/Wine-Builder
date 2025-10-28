@@ -110,7 +110,7 @@ echo.
 REM Build the executable using pyinstaller module with GUI support
 REM Optimized for AV compatibility and proper bundling
 REM Include tkinter as runtime dependency (resolved from target Windows system)
-python -m PyInstaller --onefile --windowed --clean --noupx --name=$EXECUTABLE_NAME --collect-all PIL --collect-all tkinter --hidden-import=PIL.Image --hidden-import=PIL.ImageTk --hidden-import=tkinter $EXTRA_ARGS $PYTHON_SCRIPT
+python -m PyInstaller --onefile --windowed --clean --noupx --name=$EXECUTABLE_NAME --collect-all PIL --hidden-import=PIL.Image --hidden-import=PIL.ImageTk --hidden-import=tkinter --exclude-module=tkinter $EXTRA_ARGS $PYTHON_SCRIPT
 
 if errorlevel 1 (
     echo.
