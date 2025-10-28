@@ -1,0 +1,65 @@
+name: Build Sprite Tool EXE
+
+on:
+  workflow_dispatch:  # Manual trigger only
+    inputs:
+      tool_name:
+        description: 'Select tool to build'
+        required: true
+        type: choice
+        options:
+          - combined_sprite_tools
+          - sprite_frame_editor
+          - sprite_frame_sizer
+          - spritesheet_combiner
+          - spritesheet_analyzer
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install PyInstaller and dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller pillow
+
+      - name: Determine script path
+        id: script_path
+        run: |
+          $tool = "${{ inputs.tool_name }}"
+          if ($tool -eq "combined_sprite_tools") {
+            echo "path=tools/sprite-tools/combined_sprite_tools.py" >> $env:GITHUB_OUTPUT
+          } elseif ($tool -eq "sprite_frame_editor") {
+            echo "path=tools/sprite-tools/editor/sprite_frame_editor.py" >> $env:GITHUB_OUTPUT
+          } elseif ($tool -eq "sprite_frame_sizer") {
+            echo "path=tools/sprite-tools/spriteframe-sizer/sprite_frame_sizer.py" >> $env:GITHUB_OUTPUT
+          } elseif ($tool -eq "spritesheet_combiner") {
+            echo "path=tools/sprite-tools/spritesheet-combiner/spritesheet_combiner.py" >> $env:GITHUB_OUTPUT
+          } elseif ($tool -eq "spritesheet_analyzer") {
+            echo "path=tools/sprite-tools/spritesheet-id/spritesheet_analyzer.py" >> $env:GITHUB_OUTPUT
+          }
+
+      - name: Build EXE with PyInstaller
+        run: |
+          pyinstaller --onefile --windowed --clean `
+                    --collect-all PIL `
+                    --hidden-import PIL.Image `
+                    --hidden-import PIL.ImageTk `
+                    --name "${{ inputs.tool_name }}" `
+                    ${{ steps.script_path.outputs.path }}
+
+      - name: Upload EXE artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.tool_name }}-windows-exe
+          path: dist/${{ inputs.tool_name }}.exe
+          if-no-files-found: error

@@ -29,7 +29,7 @@ ENV WINEARCH=win32
 ENV WINEDEBUG=fixme-all
 RUN wineboot --init
 
-# Install Python 3.12 embeddable in Wine for PyInstaller (simpler approach)
+# Install Python 3.12 embeddable in Wine and enable tkinter
 RUN apt-get -qq update && apt-get -qq -y install wget unzip cabextract p7zip-full \
     && rm -rf /var/lib/apt/lists/*
 
@@ -39,9 +39,8 @@ RUN cd /tmp \
     && mkdir -p $WINEPREFIX/drive_c/Python312 \
     && cd $WINEPREFIX/drive_c/Python312 \
     && unzip /tmp/python312.zip \
-    && sed -i 's|# Lib/site-packages|Lib/site-packages|' python312._pth \
+    && sed -i 's|#import site|import site|' python312._pth \
     && echo "import site" >> python312._pth \
-    && echo "uncommented Lib/site-packages in python312._pth" \
     && rm /tmp/python312.zip
 
 # Don't create fake tkinter module - let PyInstaller handle tkinter properly

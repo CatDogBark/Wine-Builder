@@ -66,7 +66,7 @@ echo   Windows Executable Build
 echo ========================================
 echo.
 
-REM Add Python 3.12 embeddable to PATH
+REM Set Python PATH for embeddable Python
 set PATH=C:\Python312;%PATH%
 echo Added Python 3.12 to PATH: %PATH%
 
@@ -84,9 +84,9 @@ if errorlevel 1 (
     exit /b 1
 )
 
-REM Set PYTHONPATH for site-packages
-set PYTHONPATH=C:\Python312\Lib\site-packages;%PYTHONPATH%
-echo Set PYTHONPATH to include site-packages: %PYTHONPATH%
+REM Embeddable Python uses its own site-packages
+echo Python site-packages location check:
+python -c "import site; print(site.getsitepackages())"
 
 REM Check if PyInstaller is available
 python -c "import site; import PyInstaller" > nul 2>&1
@@ -109,8 +109,8 @@ echo.
 
 REM Build the executable using pyinstaller module with GUI support
 REM Optimized for AV compatibility and proper bundling
-REM Include tkinter as runtime dependency (resolved from target Windows system)
-python -m PyInstaller --onefile --windowed --clean --noupx --name=$EXECUTABLE_NAME --collect-all PIL --hidden-import=PIL.Image --hidden-import=PIL.ImageTk --hidden-import=tkinter --exclude-module=tkinter $EXTRA_ARGS $PYTHON_SCRIPT
+REM Let PyInstaller handle tkinter analysis with full Python environment
+python -m PyInstaller --onefile --windowed --clean --noupx --name=$EXECUTABLE_NAME --collect-all PIL --hidden-import=PIL.Image --hidden-import=PIL.ImageTk $EXTRA_ARGS $PYTHON_SCRIPT
 
 if errorlevel 1 (
     echo.
