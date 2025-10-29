@@ -21,6 +21,7 @@ from editor.sprite_frame_editor import SpriteFrameEditor
 from spriteframe_sizer.sprite_frame_sizer import SpriteFrameSizer
 from spritesheet_combiner.spritesheet_combiner import EnhancedSpritesheetCombiner
 from spritesheet_id.spritesheet_analyzer import SpritesheetAnalyzer
+from rotate.sprite_sheet_rotator import SpritesheetRotator
 
 class SpriteToolsSuite:
     def __init__(self, root):
@@ -35,6 +36,7 @@ class SpriteToolsSuite:
         # Create tab frames
         self.create_editor_tab()
         self.create_sizer_tab()
+        self.create_rotator_tab()
         self.create_combiner_tab()
         self.create_analyzer_tab()
 
@@ -58,6 +60,15 @@ class SpriteToolsSuite:
         # Initialize the sizer with the tab frame as parent
         self.sizer = SpriteFrameSizer(sizer_frame)
         self.sizer.root = sizer_frame  # Override the root reference
+
+    def create_rotator_tab(self):
+        """Create Spritesheet Frame Rotator tab"""
+        rotator_frame = ttk.Frame(self.notebook, padding=10)
+        self.notebook.add(rotator_frame, text="Frame Rotator")
+
+        # Initialize the rotator with the tab frame as parent
+        self.rotator = SpritesheetRotator(rotator_frame)
+        self.rotator.root = rotator_frame  # Override the root reference
 
     def create_combiner_tab(self):
         """Create Spritesheet Combiner tab"""
@@ -103,6 +114,7 @@ A unified interface for all your sprite processing needs:
 
 • Frame Editor: Select, delete, and move frames in spritesheets
 • Frame Sizer: Resize frames to standard sizes (64x64, 128x128, 256x256)
+• Frame Rotator: Rotate individual frames in spritesheets by specified degrees
 • Sheet Combiner: Combine multiple animation spritesheets into one
 • Sheet Analyzer: Analyze spritesheets to determine grid layouts
 

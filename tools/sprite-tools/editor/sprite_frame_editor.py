@@ -831,8 +831,8 @@ Status Legend:
             # Save the spritesheet
             new_sheet.save(save_path)
 
-            # Save layout config with all relevant data
-            self.save_layout_config(save_path, frame_size[0], [])
+            # Save layout config with all relevant data, preserving animation_info if loaded
+            self.save_layout_config(save_path, frame_size[0], self.animation_info)
             self.status_var.set(f"Saved: {os.path.basename(save_path)} and layout config")
 
         except Exception as e:
@@ -1005,16 +1005,6 @@ Status Legend:
         print(f"DEBUG: Saving layout config to: {layout_path}")
         print(f"DEBUG: animation_info = {animation_info}")
 
-        # Calculate grid dimensions for the final spritesheet (exactly like combiner)
-        if self.layout_mode == "horizontal":
-            # Rows mode: frames across, animations down (horizontal strips)
-            grid_cols = max([info['frame_count'] for info in animation_info]) if animation_info else 1
-            grid_rows = len(animation_info) if animation_info else 1
-        else:
-            # Columns mode: animations across, frames down (vertical strips)
-            grid_cols = len(animation_info) if animation_info else 1
-            grid_rows = max([info['frame_count'] for info in animation_info]) if animation_info else 1
-
         try:
             with open(layout_path, 'w') as f:
                 f.write("# Sprite Frame Editor Layout Configuration\n")
@@ -1024,8 +1014,8 @@ Status Legend:
                 mode = self.layout_mode
                 f.write(f"mode = {mode}\n")
                 f.write(f"target_size = {target_size}\n")
-                f.write(f"grid_cols = {grid_cols}\n")
-                f.write(f"grid_rows = {grid_rows}\n\n")
+                f.write(f"grid_cols = {self.grid_cols}\n")
+                f.write(f"grid_rows = {self.grid_rows}\n\n")
 
                 # Recalculate animation data based on current frame positions
                 current_animation_info = []
@@ -1036,10 +1026,14 @@ Status Legend:
                         if row not in row_groups:
                             row_groups[row] = []
                         row_groups[row].append(frame.original_index)
-                    for row in sorted(row_groups.keys()):
+                    for row_idx, row in enumerate(sorted(row_groups.keys())):
                         frames_in_row = sorted(row_groups[row])
+                        # Try to preserve animation names from loaded animation_info
+                        anim_name = f"Row {row + 1}"
+                        if animation_info and row_idx < len(animation_info) and 'name' in animation_info[row_idx]:
+                            anim_name = animation_info[row_idx]['name']
                         current_animation_info.append({
-                            'name': f"Row {row + 1}",
+                            'name': anim_name,
                             'start_frame': frames_in_row[0],
                             'frame_count': len(frames_in_row)
                         })
@@ -1050,10 +1044,14 @@ Status Legend:
                         if col not in col_groups:
                             col_groups[col] = []
                         col_groups[col].append(frame.original_index)
-                    for col in sorted(col_groups.keys()):
+                    for col_idx, col in enumerate(sorted(col_groups.keys())):
                         frames_in_col = sorted(col_groups[col])
+                        # Try to preserve animation names from loaded animation_info
+                        anim_name = f"Col {col + 1}"
+                        if animation_info and col_idx < len(animation_info) and 'name' in animation_info[col_idx]:
+                            anim_name = animation_info[col_idx]['name']
                         current_animation_info.append({
-                            'name': f"Col {col + 1}",
+                            'name': anim_name,
                             'start_frame': frames_in_col[0],
                             'frame_count': len(frames_in_col)
                         })

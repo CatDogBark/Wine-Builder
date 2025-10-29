@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spritesheet Rotator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .controls {
+            margin-bottom: 20px;
+        }
+        input[type="file"] {
+            margin-bottom: 10px;
+        }
+        .input-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: inline-block;
+            width: 150px;
+            font-weight: bold;
+        }
+        input[type="number"] {
+            width: 80px;
+            padding: 5px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .canvas-container {
+            margin-top: 20px;
+            text-align: center;
+        }
+        canvas {
+            border: 1px solid #ddd;
+            max-width: 100%;
+            image-rendering: pixelated;
+        }
+        .status {
+            margin-top: 10px;
+            padding: 10px;
+            background: #e7f3ff;
+            border-radius: 4px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Spritesheet Frame Rotator</h1>
+        
+        <div class="controls">
+            <input type="file" id="fileInput" accept="image/*">
+            
+            <div class="input-group">
+                <label>Columns:</label>
+                <input type="number" id="cols" value="4" min="1">
+            </div>
+            
+            <div class="input-group">
+                <label>Rows:</label>
+                <input type="number" id="rows" value="4" min="1">
+            </div>
+            
+            <div class="input-group">
+                <label>Rotation (degrees):</label>
+                <input type="number" id="rotation" value="-15" step="1">
+            </div>
+            
+            <button id="rotateBtn" disabled>Rotate Frames</button>
+            <button id="downloadBtn" disabled>Download Result</button>
+        </div>
+        
+        <div class="status" id="status"></div>
+        
+        <div class="canvas-container">
+            <h3>Original</h3>
+            <canvas id="originalCanvas"></canvas>
+            
+            <h3>Rotated</h3>
+            <canvas id="rotatedCanvas"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const fileInput = document.getElementById('fileInput');
+        const colsInput = document.getElementById('cols');
+        const rowsInput = document.getElementById('rows');
+        const rotationInput = document.getElementById('rotation');
+        const rotateBtn = document.getElementById('rotateBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const originalCanvas = document.getElementById('originalCanvas');
+        const rotatedCanvas = document.getElementById('rotatedCanvas');
+        const status = document.getElementById('status');
+        
+        let loadedImage = null;
+        
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        loadedImage = img;
+                        displayOriginal();
+                        rotateBtn.disabled = false;
+                        showStatus('Image loaded successfully!');
+                    };
+                    img.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+        
+        rotateBtn.addEventListener('click', rotateFrames);
+        downloadBtn.addEventListener('click', downloadResult);
+        
+        function displayOriginal() {
+            originalCanvas.width = loadedImage.width;
+            originalCanvas.height = loadedImage.height;
+            const ctx = originalCanvas.getContext('2d');
+            ctx.drawImage(loadedImage, 0, 0);
+        }
+        
+        function rotateFrames() {
+            if (!loadedImage) return;
+            
+            const cols = parseInt(colsInput.value);
+            const rows = parseInt(rowsInput.value);
+            const rotation = parseFloat(rotationInput.value) * Math.PI / 180;
+            
+            const frameWidth = loadedImage.width / cols;
+            const frameHeight = loadedImage.height / rows;
+            
+            // Calculate the diagonal of the frame to determine new size
+            const diagonal = Math.sqrt(frameWidth * frameWidth + frameHeight * frameHeight);
+            const newFrameSize = Math.ceil(diagonal);
+            
+            rotatedCanvas.width = newFrameSize * cols;
+            rotatedCanvas.height = newFrameSize * rows;
+            
+            const ctx = rotatedCanvas.getContext('2d');
+            ctx.clearRect(0, 0, rotatedCanvas.width, rotatedCanvas.height);
+            
+            // Extract and rotate each frame
+            for (let row = 0; row < rows; row++) {
+                for (let col = 0; col < cols; col++) {
+                    const srcX = col * frameWidth;
+                    const srcY = row * frameHeight;
+                    
+                    const destX = col * newFrameSize + newFrameSize / 2;
+                    const destY = row * newFrameSize + newFrameSize / 2;
+                    
+                    ctx.save();
+                    ctx.translate(destX, destY);
+                    ctx.rotate(rotation);
+                    ctx.drawImage(
+                        loadedImage,
+                        srcX, srcY, frameWidth, frameHeight,
+                        -frameWidth / 2, -frameHeight / 2, frameWidth, frameHeight
+                    );
+                    ctx.restore();
+                }
+            }
+            
+            downloadBtn.disabled = false;
+            showStatus('Frames rotated successfully!');
+        }
+        
+        function downloadResult() {
+            rotatedCanvas.toBlob((blob) => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'rotated_spritesheet.png';
+                a.click();
+                URL.revokeObjectURL(url);
+                showStatus('Download started!');
+            });
+        }
+        
+        function showStatus(message) {
+            status.textContent = message;
+            status.style.display = 'block';
+            setTimeout(() => {
+                status.style.display = 'none';
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
