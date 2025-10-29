@@ -1,4 +1,0 @@
-- [ ] Modify Dockerfile to copy pyinstaller_cache directory
-- [ ] Replace pip install with wheel extraction commands  
-- [ ] Ensure wheels are extracted in dependency order if needed
-- [ ] Build Docker image to test PyInstaller installation
