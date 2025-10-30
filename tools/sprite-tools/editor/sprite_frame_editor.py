@@ -58,6 +58,7 @@ class SpriteFrameEditor:
         self.canvas_zoom = 1.0
         self.dragged_frame = None
         self.drag_start = None
+        self.copied_frame = None  # Store copied frame image
 
         self.setup_ui()
         self.setup_canvas()
@@ -180,6 +181,8 @@ Controls:
 • Ctrl+Click for multi-select
 • Drag to move selected frames
 • Delete key to remove selected
+• Ctrl+C to copy selected frame
+• Ctrl+V to paste into selected frames
 • Right-click for context menu
 
 Status Legend:
@@ -223,8 +226,15 @@ Status Legend:
         self.canvas.bind('<Delete>', lambda e: (print("DEBUG: Delete key pressed on canvas"), self.delete_selected()))
         self.canvas.bind('<Control-a>', lambda e: self.select_all())
 
+        # Copy/paste keyboard shortcuts
+        self.canvas.bind('<Control-c>', lambda e: self.copy_selected_frames())
+        self.canvas.bind('<Control-v>', lambda e: self.paste_into_selected_frames())
+
         # Context menu
         self.context_menu = tk.Menu(self.root, tearoff=0)
+        self.context_menu.add_command(label="Copy Selected Frame", command=self.copy_selected_frames)
+        self.context_menu.add_command(label="Paste into Selected Frames", command=self.paste_into_selected_frames)
+        self.context_menu.add_separator()
         self.context_menu.add_command(label="Delete Selected", command=self.delete_selected)
         self.context_menu.add_command(label="Clear Selection", command=self.clear_selection)
         self.context_menu.add_separator()
@@ -706,6 +716,45 @@ Status Legend:
         for frame in self.frames:
             frame.selected = False
         self.update_display()
+
+    def copy_selected_frames(self):
+        """Copy the first selected non-empty frame to clipboard"""
+        # Find the first selected non-empty frame
+        for frame in self.frames:
+            if frame.selected and not frame.is_empty:
+                # Copy the frame image
+                self.copied_frame = frame.image.copy()
+                self.status_var.set(f"Copied frame {frame.original_index}")
+                return
+
+        # No non-empty selected frame found
+        if any(f.selected for f in self.frames):
+            messagebox.showwarning("Copy Failed", "Cannot copy empty frames. Please select a non-empty frame to copy.")
+        else:
+            messagebox.showwarning("Copy Failed", "No frames selected. Please select a frame to copy.")
+        self.status_var.set("Copy failed - no valid frame selected")
+
+    def paste_into_selected_frames(self):
+        """Paste the copied frame content into all selected frames, overwriting everything"""
+        if not self.copied_frame:
+            messagebox.showwarning("Paste Failed", "No frame content copied. Use Ctrl+C or context menu to copy a frame first.")
+            return
+
+        pasted_count = 0
+        for frame in self.frames:
+            if frame.selected:
+                # Completely overwrite the frame content
+                frame.image = self.copied_frame.copy()
+                frame.is_empty = False  # Since we're pasting content
+                frame.selected = False  # Clear selection after paste
+                pasted_count += 1
+
+        if pasted_count == 0:
+            messagebox.showwarning("Paste Failed", "No frames selected. Please select target frames to paste into.")
+            self.status_var.set("Paste failed - no frames selected")
+        else:
+            self.update_display()
+            self.status_var.set(f"Pasted copied content into {pasted_count} frames")
 
     def delete_selected(self):
         """Mark selected frames as deleted (empty)"""

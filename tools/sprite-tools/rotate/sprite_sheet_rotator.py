@@ -149,9 +149,9 @@ class SpritesheetRotator:
                 frame_width = width // cols
                 frame_height = height // rows
 
-                # Calculate the diagonal to determine new frame size
+                # Calculate the diagonal to determine expansion needed for rotation
                 diagonal = math.sqrt(frame_width ** 2 + frame_height ** 2)
-                new_frame_size = math.ceil(diagonal)
+                expanded_size = math.ceil(diagonal)
 
                 info = f"""Input Spritesheet: {os.path.basename(self.input_file)}
 Size: {width}×{height} pixels
@@ -160,10 +160,9 @@ Frame size: {frame_width}×{frame_height} pixels
 
 Rotation: {rotation}°
 
-Output frame size: {new_frame_size}×{new_frame_size} pixels
-(fit rotated frame in square canvas)
-
-Output canvas: {new_frame_size * cols}×{new_frame_size * rows} pixels"""
+Output: Same dimensions as input
+{cols}×{rows} frames cropped back to {frame_width}×{frame_height} pixels each
+(expand internally to ~{expanded_size}×{expanded_size} for rotation)"""
 
                 self.preview_text.insert(1.0, info)
             except Exception as e:
@@ -208,14 +207,15 @@ Output canvas: {new_frame_size * cols}×{new_frame_size * rows} pixels"""
             self.status_var.set(f"Rotating {cols * rows} frames by {rotation}°...")
             self.root.update()
 
-            # Calculate the diagonal of the frame to determine new size
-            diagonal = math.sqrt(frame_width ** 2 + frame_height ** 2)
-            new_frame_size = math.ceil(diagonal)
-
-            # Create output image with larger dimensions
-            output_width = new_frame_size * cols
-            output_height = new_frame_size * rows
+            # Output will use original frame dimensions (no expansion)
+            # Use expanded canvas internally for rotation only
+            output_width = width
+            output_height = height
             output_img = Image.new('RGBA', (output_width, output_height), (0, 0, 0, 0))
+
+            # Calculate expanded frame size for rotation (not final output)
+            diagonal = math.sqrt(frame_width ** 2 + frame_height ** 2)
+            expanded_frame_size = math.ceil(diagonal)
 
             # Process each frame
             frame_idx = 0
@@ -229,22 +229,23 @@ Output canvas: {new_frame_size * cols}×{new_frame_size * rows} pixels"""
 
                     frame = img.crop((left, top, right, bottom))
 
-                    # Create larger canvas to fit the rotated frame
-                    temp_canvas = Image.new('RGBA', (new_frame_size, new_frame_size), (0, 0, 0, 0))
+                    # Rotate the frame and crop back to original size
+                    rotated_expanded = frame.rotate(rotation, expand=True)
 
-                    # Paste the original frame centered in the larger canvas
-                    paste_x = (new_frame_size - frame_width) // 2
-                    paste_y = (new_frame_size - frame_height) // 2
-                    temp_canvas.paste(frame, (paste_x, paste_y))
+                    # Crop the center of the rotated result back to original frame size
+                    # This prevents clipping while maintaining uniform frame dimensions
+                    crop_left = (rotated_expanded.width - frame_width) // 2
+                    crop_top = (rotated_expanded.height - frame_height) // 2
+                    crop_right = crop_left + frame_width
+                    crop_bottom = crop_top + frame_height
 
-                    # Rotate the entire canvas (preserves full sprite)
-                    rotated_frame = temp_canvas.rotate(rotation, expand=False)
+                    final_frame = rotated_expanded.crop((crop_left, crop_top, crop_right, crop_bottom))
 
-                    # Position in output grid
-                    x_offset = col * new_frame_size
-                    y_offset = row * new_frame_size
+                    # Position in output grid (original positions maintain spritesheet dimensions)
+                    x_offset = col * frame_width
+                    y_offset = row * frame_height
 
-                    output_img.paste(rotated_frame, (x_offset, y_offset))
+                    output_img.paste(final_frame, (x_offset, y_offset))
                     frame_idx += 1
 
             # Save the output
@@ -260,13 +261,14 @@ Output canvas: {new_frame_size * cols}×{new_frame_size * rows} pixels"""
 
                 # Show success message
                 frame_info = f"{frame_width}x{frame_height}"
-                new_canvas_info = f"{new_frame_size}x{new_frame_size}"
+                output_info = f"{output_width}x{output_height}"
                 messagebox.showinfo(
                     "Success",
                     f"Frame rotation completed!\n\n"
-                    f"Original frame size: {frame_info}\n"
+                    f"Original spritesheet: {width}×{height} pixels\n"
+                    f"Frame size: {frame_info}\n"
                     f"Rotated by: {rotation}°\n"
-                    f"New frame canvas: {new_canvas_info}\n"
+                    f"Output: {output_info} pixels (same as input)\n"
                     f"Total frames: {cols * rows}\n"
                     f"Grid: {cols}×{rows}\n\n"
                     f"Saved to: {os.path.basename(save_path)}"
